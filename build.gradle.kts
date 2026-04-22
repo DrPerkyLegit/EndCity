@@ -10,8 +10,11 @@ repositories {
     mavenCentral()
 }
 
-dependencies { }
-
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.10.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
 
 java {
     toolchain {
@@ -19,8 +22,16 @@ java {
     }
 }
 
+application {
+    mainClass.set("dev.drperky.Start")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "dev.drperky.LegacyCord"
+        attributes["Main-Class"] = "dev.drperky.Start"
     }
 }
