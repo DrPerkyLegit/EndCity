@@ -5,6 +5,7 @@ import dev.drperky.lce.minecraft.network.NetworkManager;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -56,6 +57,10 @@ public final class BroadcastingThread extends Thread {
              Selector selector = Selector.open()) {
 
             serverChannel.configureBlocking(false);
+            // Allow quick rebinds after a crash/restart. Without this, the OS holds the port in
+            // TIME_WAIT for up to 60s after the old process dies and the next `gradlew run` fails
+            // with BindException. This does NOT allow two active listeners to share the port.
+            serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
             serverChannel.bind(new InetSocketAddress(requestedPort));
             this.boundPort = ((InetSocketAddress) serverChannel.getLocalAddress()).getPort();
             boundLatch.countDown();
