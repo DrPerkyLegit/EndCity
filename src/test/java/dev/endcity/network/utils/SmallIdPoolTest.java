@@ -1,6 +1,6 @@
-package dev.drperky.lce.minecraft.network.utils;
+package dev.endcity.network.utils;
 
-import dev.drperky.lce.minecraft.network.NetworkConstants;
+import dev.endcity.network.NetworkConstants;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;

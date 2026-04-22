@@ -1,4 +1,4 @@
-package dev.drperky.lce.minecraft.network;
+package dev.endcity.network;
 
 /**
  * Transport-layer constants for the LCE Win64 wire protocol.

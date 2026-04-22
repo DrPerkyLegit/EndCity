@@ -1,7 +1,7 @@
-package dev.drperky.lce.minecraft.network.threads;
+package dev.endcity.network.threads;
 
-import dev.drperky.lce.minecraft.network.NetworkConstants;
-import dev.drperky.lce.minecraft.network.NetworkManager;
+import dev.endcity.network.NetworkConstants;
+import dev.endcity.network.NetworkManager;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

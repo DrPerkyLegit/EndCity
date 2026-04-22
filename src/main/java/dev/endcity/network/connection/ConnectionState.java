@@ -1,4 +1,4 @@
-package dev.drperky.lce.minecraft.network.connection;
+package dev.endcity.network.connection;
 
 public enum ConnectionState {
     Pending,

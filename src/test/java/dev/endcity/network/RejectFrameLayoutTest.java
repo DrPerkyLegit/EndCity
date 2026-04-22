@@ -1,4 +1,4 @@
-package dev.drperky.lce.minecraft.network;
+package dev.endcity.network;
 
 import org.junit.jupiter.api.Test;
 

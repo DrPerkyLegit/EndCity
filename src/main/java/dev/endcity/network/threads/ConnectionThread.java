@@ -1,8 +1,8 @@
-package dev.drperky.lce.minecraft.network.threads;
+package dev.endcity.network.threads;
 
-import dev.drperky.lce.minecraft.network.NetworkConstants;
-import dev.drperky.lce.minecraft.network.NetworkManager;
-import dev.drperky.lce.minecraft.network.connection.PlayerConnection;
+import dev.endcity.network.NetworkConstants;
+import dev.endcity.network.NetworkManager;
+import dev.endcity.network.connection.PlayerConnection;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

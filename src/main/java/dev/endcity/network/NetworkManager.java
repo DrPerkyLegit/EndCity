@@ -1,9 +1,9 @@
-package dev.drperky.lce.minecraft.network;
+package dev.endcity.network;
 
-import dev.drperky.lce.minecraft.network.connection.PlayerConnection;
-import dev.drperky.lce.minecraft.network.threads.BroadcastingThread;
-import dev.drperky.lce.minecraft.network.threads.ConnectionThread;
-import dev.drperky.lce.minecraft.network.utils.SmallIdPool;
+import dev.endcity.network.connection.PlayerConnection;
+import dev.endcity.network.threads.BroadcastingThread;
+import dev.endcity.network.threads.ConnectionThread;
+import dev.endcity.network.utils.SmallIdPool;
 
 import java.io.IOException;
 import java.net.SocketAddress;

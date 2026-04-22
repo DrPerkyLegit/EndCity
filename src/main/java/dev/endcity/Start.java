@@ -1,6 +1,6 @@
-package dev.drperky;
+package dev.endcity;
 
-import dev.drperky.lce.minecraft.server.MinecraftServer;
+import dev.endcity.server.MinecraftServer;
 
 import java.io.IOException;
 import java.util.logging.ConsoleHandler;

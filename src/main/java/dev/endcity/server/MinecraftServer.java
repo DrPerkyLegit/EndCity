@@ -1,6 +1,6 @@
-package dev.drperky.lce.minecraft.server;
+package dev.endcity.server;
 
-import dev.drperky.lce.minecraft.network.NetworkManager;
+import dev.endcity.network.NetworkManager;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;

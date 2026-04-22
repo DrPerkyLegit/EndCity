@@ -3,7 +3,7 @@ plugins {
     id("application")
 }
 
-group = "dev.drperky"
+group = "dev.endcity"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -23,7 +23,7 @@ java {
 }
 
 application {
-    mainClass.set("dev.drperky.Start")
+    mainClass.set("dev.endcity.Start")
 }
 
 tasks.test {
@@ -32,6 +32,6 @@ tasks.test {
 
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "dev.drperky.Start"
+        attributes["Main-Class"] = "dev.endcity.Start"
     }
 }

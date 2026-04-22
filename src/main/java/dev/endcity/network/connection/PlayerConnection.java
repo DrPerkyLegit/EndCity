@@ -1,6 +1,6 @@
-package dev.drperky.lce.minecraft.network.connection;
+package dev.endcity.network.connection;
 
-import dev.drperky.lce.minecraft.network.NetworkConstants;
+import dev.endcity.network.NetworkConstants;
 
 import java.io.IOException;
 import java.net.SocketAddress;
