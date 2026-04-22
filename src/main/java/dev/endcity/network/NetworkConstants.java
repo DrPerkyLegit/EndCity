@@ -39,17 +39,66 @@ public final class NetworkConstants {
     public static final int DISCONNECT_PACKET_ID = 255;
 
     /**
-     * Ordinals of {@code DisconnectPacket::eDisconnectReason} from the source. Only the subset used in M0
-     * is defined here; the rest land with {@code DisconnectPacket} in M1.
+     * Wire protocol version the client advertises in {@code PreLoginPacket.m_netcodeVersion}. Mismatch
+     * triggers {@code eDisconnect_OutdatedClient} / {@code eDisconnect_OutdatedServer}.
+     * From {@code include/Common/BuildVer.h} ({@code VER_PRODUCTBUILD} / {@code VER_NETWORK} / {@code MINECRAFT_NET_VERSION}).
+     */
+    public static final int MINECRAFT_NET_VERSION = 560;
+
+    /**
+     * Shared-constants protocol version the server advertises in {@code LoginPacket.clientVersion}.
+     * From {@code Minecraft.World/SharedConstants.h::NETWORK_PROTOCOL_VERSION}. <strong>Not the same as
+     * {@link #MINECRAFT_NET_VERSION}.</strong>
+     */
+    public static final int NETWORK_PROTOCOL_VERSION = 78;
+
+    /**
+     * Max chars for {@code LoginPacket.userName} and by extension any player name.
+     * From {@code Minecraft.World/Player.h::MAX_NAME_LENGTH} (= 16 + 4).
+     */
+    public static final int PLAYER_MAX_NAME_LENGTH = 20;
+
+    /**
+     * Max chars for a level-type generator name (e.g. {@code "default"}, {@code "flat"}).
+     * From the hard-coded literal in {@code LoginPacket.cpp::read} ({@code readUtf(dis, 16)}).
+     */
+    public static final int LEVEL_TYPE_NAME_MAX_LEN = 16;
+
+    /**
+     * Largest world width the Win64 build supports, in chunks. Emitted in the {@code _LARGE_WORLDS}
+     * tail of {@code LoginPacket}. From {@code Minecraft.World/ChunkSource.h::LEVEL_MAX_WIDTH}
+     * ({@code 5 * 64 = 320}) with {@code _LARGE_WORLDS} defined.
+     */
+    public static final int LEVEL_MAX_WIDTH = 320;
+
+    /**
+     * Nether coordinate scale on Win64. Emitted in the {@code _LARGE_WORLDS} tail of {@code LoginPacket}.
+     * From {@code Minecraft.World/ChunkSource.h::HELL_LEVEL_MAX_SCALE} with {@code _LARGE_WORLDS} defined.
+     */
+    public static final int HELL_LEVEL_MAX_SCALE = 8;
+
+    /** Special sentinel player-UID value. From {@code Common/Network/NetworkPlayerInterface.h::INVALID_XUID}. */
+    public static final long INVALID_XUID = 0L;
+
+    /**
+     * Ordinals of {@code DisconnectPacket::eDisconnectReason} from the source. Only the subset used
+     * through M1 (plus a handful of neighbours we'll need soon) is defined here; the rest land as
+     * they become needed in later milestones.
      */
     public static final class DisconnectReason {
         private DisconnectReason() {}
-        public static final int NONE               = 0;
-        public static final int QUITTING           = 1;
-        public static final int CLOSED             = 2;
-        public static final int LOGIN_TOO_LONG     = 3;
-        public static final int TIME_OUT           = 9;
-        public static final int SERVER_FULL        = 12;
-        public static final int UNEXPECTED_PACKET  = 15;
+        public static final int NONE                             = 0;
+        public static final int QUITTING                         = 1;
+        public static final int CLOSED                           = 2;
+        public static final int LOGIN_TOO_LONG                   = 3;
+        public static final int KICKED                           = 8;
+        public static final int TIME_OUT                         = 9;
+        public static final int OVERFLOW_                        = 10; // trailing _ to avoid keyword clash if we ever make it an enum
+        public static final int END_OF_STREAM                    = 11;
+        public static final int SERVER_FULL                      = 12;
+        public static final int OUTDATED_SERVER                  = 13; // client's net version > server's
+        public static final int OUTDATED_CLIENT                  = 14; // client's net version < server's
+        public static final int UNEXPECTED_PACKET                = 15;
+        public static final int NO_MULTIPLAYER_PRIVILEGES_JOIN   = 18;
     }
 }
