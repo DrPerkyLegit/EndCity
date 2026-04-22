@@ -1,52 +1,81 @@
-# EndCity
+<h1 align="center">EndCity</h1>
 
-A third-party dedicated server for **Minecraft: Legacy Console Edition** on Windows 10 / Win64.
+<p align="center">
+  A third-party dedicated server for <b>Minecraft: Legacy Console Edition</b> (Win64).
+</p>
 
-LCE shipped without a dedicated server. Every multiplayer game was peer-to-peer, with one player acting as the host. When that host quit, the session ended. EndCity is an attempt to fix that — a server you can leave running, that a real LCE client can connect straight to.
+<p align="center">
+  <img alt="Status" src="https://img.shields.io/badge/status-WIP-orange?style=flat-square">
+  <img alt="Java" src="https://img.shields.io/badge/Java-22-ED8B00?style=flat-square&logo=openjdk&logoColor=white">
+  <img alt="Gradle" src="https://img.shields.io/badge/Gradle-8.9-02303A?style=flat-square&logo=gradle&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square">
+  <img alt="Protocol" src="https://img.shields.io/badge/protocol-LCE%20Win64-8A2BE2?style=flat-square">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-43%20passing-success?style=flat-square">
+</p>
 
-> ⚠️ **Work in progress.** EndCity can accept a real client and hold the handshake, but it doesn't send any world data yet — clients currently get stuck on the "Downloading terrain" screen. See **Status** below for what works today.
 
-## Status
+## What is this?
 
-| | |
-|---|---|
-| ✅ | Accepts real LCE Win64 clients on TCP 25565 |
-| ✅ | Completes the full handshake (PreLogin → Login → Play) |
-| ✅ | Keep-alives / timeouts working, client holds the connection indefinitely |
-| ✅ | Rejects mismatched client versions cleanly |
-| 🚧 | No world data sent yet — client reaches "Downloading terrain" and hangs there |
-| 🚧 | No player movement, no blocks, no mobs, no chat |
-| 🚧 | No world persistence, no `.ms` save integration |
+LCE never got a proper dedicated server. If you wanted to play with friends, one person had to host, and when they quit, everyone got kicked. That sucks.
 
-The project is being built in milestones. Right now the transport layer and handshake are complete. World rendering, movement, blocks, inventory, multiplayer, mobs, and persistence are planned.
+EndCity is a dedicated server that speaks LCE's Win64 TCP protocol (net version 560, protocol 78) natively. Run it on a box you leave on, and an unmodified LCE client can just connect to it like it would any other server.
+
+> **Heads up:** this is early. Right now the server can do the handshake but doesn't send any world data yet, so clients hit "Downloading terrain" and just sit there. See below for what works.
+
+
+## What works
+
+- [x] Listens on TCP 25565
+- [x] Accepts real LCE Win64 clients
+- [x] Full handshake (PreLogin, Login, enter Play)
+- [x] Keep-alives every second, timeout detection, login watchdog
+- [x] Rejects outdated/future client versions with the right error code
+- [x] Clean disconnects, proper small ID pool recycling
+
+## What doesn't (yet)
+
+- [ ] World data (clients hang on "Downloading terrain")
+- [ ] Player movement
+- [ ] Blocks, placing, breaking
+- [ ] Inventory and chests
+- [ ] Chat
+- [ ] Other players showing up
+- [ ] Mobs
+- [ ] Saving worlds to disk
+
+These are all planned. The project is being built in order, one piece at a time, with each piece tested against a real client before moving on.
+
 
 ## Running it
 
-You need **JDK 22**. If you don't have it, Gradle will auto-download one on first build.
+You need **JDK 22**. If you don't have it, Gradle will grab one automatically.
 
-```
+```bash
 ./gradlew run
 ```
 
-That's it. EndCity listens on port 25565. Point a real LCE Win64 client at the host and watch it connect.
+Server listens on `25565`. Point a real LCE Win64 client at the host and it'll connect.
 
-To produce a distributable launch script:
+Want a launch script you can run without Gradle?
 
-```
+```bash
 ./gradlew installDist
-# Output in build/install/EndCity/bin/
+# Then run: build/install/EndCity/bin/EndCity
 ```
 
-## Running the tests
+## Tests
 
-```
+```bash
 ./gradlew test
 ```
 
+Everything gets tested against a live server on an ephemeral port. No mocks, no fakes, real TCP end to end.
+
+
 ## License
 
-Apache License 2.0. See `LICENSE`.
+Apache 2.0. Do what you want.
 
 ## Disclaimer
 
-EndCity is a clean-room reimplementation of the LCE Win64 network protocol. It contains no code or assets from Minecraft: Legacy Console Edition. No affiliation with Mojang, Microsoft, 4J Studios, or Xbox Game Studios. "Minecraft" is a trademark of Mojang Synergies AB; this project is not endorsed by or associated with Mojang.
+Clean-room reimplementation of the LCE Win64 network protocol. No code or assets from the actual game. Not affiliated with Mojang, Microsoft, 4J Studios, or Xbox Game Studios. "Minecraft" is a trademark of Mojang Synergies AB.
