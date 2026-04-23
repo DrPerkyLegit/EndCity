@@ -5,8 +5,10 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
 import dev.endcity.network.packets.play.ChunkVisibilityPacket;
+import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
 import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
 import dev.endcity.network.packets.play.SetHealthPacket;
 import dev.endcity.network.packets.play.SetSpawnPositionPacket;
@@ -89,7 +91,9 @@ public final class M1TestClient implements AutoCloseable {
             case 4   -> new SetTimePacket();
             case 6   -> new SetSpawnPositionPacket();
             case 8   -> new SetHealthPacket();
+            case 13  -> new MovePlayerPosRotPacket();
             case 50  -> new ChunkVisibilityPacket();
+            case 51  -> new BlockRegionUpdatePacket();
             case 155 -> new ChunkVisibilityAreaPacket();
             case 202 -> new PlayerAbilitiesPacket();
             case 255 -> new DisconnectPacket();
@@ -104,25 +108,38 @@ public final class M1TestClient implements AutoCloseable {
     }
 
     /**
-     * After receiving the server's LoginResponse (id=1), the server currently emits the M2.2
-     * post-Login packet burst: SetTime, SetSpawnPosition, SetHealth, PlayerAbilities,
-     * ChunkVisibilityArea (5 packets, in that order). Consumes them so the caller can continue
-     * reading KeepAlives or a DisconnectPacket without handling this burst at every call site.
+     * After receiving the server's LoginResponse (id=1), the server currently emits the M2.3
+     * post-Login packet burst: SetSpawnPosition, PlayerAbilities, SetTime, ChunkVisibilityArea,
+     * then 9 ChunkVisibility + BlockRegionUpdate pairs, MovePlayerPosRot, and SetHealth. Consumes them so the
+     * caller can continue reading KeepAlives or a DisconnectPacket without handling this burst at
+     * every call site.
      *
      * <p>Asserts the type of each packet as a regression guard — if the server's post-Login
      * sequence changes, this method becomes the single place to update.
      */
     public void drainM2PostLoginBurst() throws IOException {
         var a = readPacket();
-        if (!(a instanceof SetTimePacket))         throw new IOException("expected SetTime, got " + a.getClass().getSimpleName());
+        if (!(a instanceof SetSpawnPositionPacket)) throw new IOException("expected SetSpawnPosition, got " + a.getClass().getSimpleName());
         var b = readPacket();
-        if (!(b instanceof SetSpawnPositionPacket)) throw new IOException("expected SetSpawnPosition, got " + b.getClass().getSimpleName());
+        if (!(b instanceof PlayerAbilitiesPacket)) throw new IOException("expected PlayerAbilities, got " + b.getClass().getSimpleName());
         var c = readPacket();
-        if (!(c instanceof SetHealthPacket))       throw new IOException("expected SetHealth, got " + c.getClass().getSimpleName());
+        if (!(c instanceof SetTimePacket))         throw new IOException("expected SetTime, got " + c.getClass().getSimpleName());
         var d = readPacket();
-        if (!(d instanceof PlayerAbilitiesPacket)) throw new IOException("expected PlayerAbilities, got " + d.getClass().getSimpleName());
+        if (!(d instanceof ChunkVisibilityAreaPacket)) throw new IOException("expected ChunkVisibilityArea, got " + d.getClass().getSimpleName());
         var e = readPacket();
-        if (!(e instanceof ChunkVisibilityAreaPacket)) throw new IOException("expected ChunkVisibilityArea, got " + e.getClass().getSimpleName());
+        if (!(e instanceof ChunkVisibilityPacket)) throw new IOException("expected first ChunkVisibility, got " + e.getClass().getSimpleName());
+        var f = readPacket();
+        if (!(f instanceof BlockRegionUpdatePacket)) throw new IOException("expected first BlockRegionUpdate, got " + f.getClass().getSimpleName());
+        for (int i = 1; i < 9; i++) {
+            var visibility = readPacket();
+            if (!(visibility instanceof ChunkVisibilityPacket)) throw new IOException("expected ChunkVisibility, got " + visibility.getClass().getSimpleName());
+            var region = readPacket();
+            if (!(region instanceof BlockRegionUpdatePacket)) throw new IOException("expected BlockRegionUpdate, got " + region.getClass().getSimpleName());
+        }
+        var move = readPacket();
+        if (!(move instanceof MovePlayerPosRotPacket)) throw new IOException("expected MovePlayerPosRot, got " + move.getClass().getSimpleName());
+        var health = readPacket();
+        if (!(health instanceof SetHealthPacket)) throw new IOException("expected SetHealth, got " + health.getClass().getSimpleName());
     }
 
     private <T extends dev.endcity.network.packets.Packet> T decode(T target, int bodyLen) throws IOException {

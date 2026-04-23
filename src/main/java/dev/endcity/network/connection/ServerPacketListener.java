@@ -8,11 +8,20 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
+import dev.endcity.network.packets.play.ChunkVisibilityPacket;
+import dev.endcity.network.packets.play.MovePlayerPacket;
+import dev.endcity.network.packets.play.MovePlayerPosPacket;
+import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
+import dev.endcity.network.packets.play.MovePlayerRotPacket;
 import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
+import dev.endcity.network.packets.play.PlayerCommandPacket;
 import dev.endcity.network.packets.play.SetHealthPacket;
 import dev.endcity.network.packets.play.SetSpawnPositionPacket;
 import dev.endcity.network.packets.play.SetTimePacket;
+import dev.endcity.world.chunk.FlatChunk;
+import dev.endcity.world.chunk.FlatChunkGenerator;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -223,30 +232,43 @@ public final class ServerPacketListener implements PacketListener {
         LOGGER.log(Level.INFO, "{0} handshake complete, entered Play (userName={1}, entityId={2})",
                 new Object[] { connection.logTag(), response.userName, response.clientVersion });
 
-        // ---------------------------------------------------------- M2.2 post-Login world setup
-        // First smoke-test of the play-phase packets against a real client. Order mirrors the
+        // ---------------------------------------------------------- M2.3 post-Login world setup
+        // Streams the minimal flat chunk window after the fixed play-phase setup. Order mirrors the
         // reference server (.MinecraftLegacyEdition/server/src/core/Connection.cpp post-login):
-        // SetTime, SetSpawnPosition, SetHealth, PlayerAbilities, ChunkVisibilityArea.
+        // SetTime, SetSpawnPosition, SetHealth, PlayerAbilities, ChunkVisibilityArea, then chunks.
         //
         // Chunk data (BlockRegionUpdate id=51) is M2.3 — without it the client has no terrain to
-        // render, so the expected outcome here is STILL a black screen. What this exercises is
-        // whether any of these six packets is malformed: if one is, the client disconnects (or
-        // silently closes) and we learn something. If all six pass the client's decoder the
-        // client continues waiting for chunks, the handshake byte-log trace is no longer the
-        // thing detecting problems, and we're ready to write the chunk-data layer.
+        // render. The expected outcome after this burst is visible flat terrain if the client
+        // accepts the BlockRegionUpdate RLE+zlib payloads.
         //
-        // Values: midday, spawn at (0,64,0), full health/food, survival abilities, 3x3 chunk
-        // visibility window (minimal — we don't promise chunks we can't send).
-        connection.sendPacket(new SetTimePacket(0L, 6000L));
-        connection.sendPacket(new SetSpawnPositionPacket(0, 64, 0));
-        connection.sendPacket(new SetHealthPacket(20.0f, (short) 20, 5.0f, SetHealthPacket.DAMAGE_SOURCE_UNKNOWN));
+        // Values: midday, spawn at (8,5,8), full health/food, survival abilities, 3x3 chunk
+        // visibility window populated by the matching send loop below.
+        connection.sendPacket(new SetSpawnPositionPacket(8, 5, 8));
         connection.sendPacket(new PlayerAbilitiesPacket(
                 (byte) 0,
                 PlayerAbilitiesPacket.DEFAULT_FLYING_SPEED,
                 PlayerAbilitiesPacket.DEFAULT_WALKING_SPEED));
+        connection.sendPacket(new SetTimePacket(0L, 6000L));
         connection.sendPacket(new ChunkVisibilityAreaPacket(-1, 1, -1, 1));
+        for (int cx = -1; cx <= 1; cx++) {
+            for (int cz = -1; cz <= 1; cz++) {
+                FlatChunk chunk = FlatChunkGenerator.generate(cx, cz);
+                connection.sendPacket(new ChunkVisibilityPacket(cx, cz, true));
+                connection.sendPacket(new BlockRegionUpdatePacket(
+                        cx * 16, 0, cz * 16,
+                        16, chunk.ys(), 16,
+                        0, true,
+                        chunk.rawData()));
+            }
+        }
+        double spawnFeetY = 5.00001;
+        connection.sendPacket(new MovePlayerPosRotPacket(
+                8.5, spawnFeetY + 1.62, spawnFeetY, 8.5,
+                0.0f, 0.0f,
+                true, false));
+        connection.sendPacket(new SetHealthPacket(20.0f, (short) 20, 5.0f, SetHealthPacket.DAMAGE_SOURCE_UNKNOWN));
         LOGGER.log(Level.INFO,
-                "{0} M2.2 post-Login packets sent (SetTime, SetSpawn, SetHealth, PlayerAbilities, ChunkVisibilityArea)",
+                "{0} M2.3 post-Login world packets sent (setup + 3x3 BlockRegionUpdate flat chunks + local teleport)",
                 new Object[] { connection.logTag() });
     }
 
@@ -269,6 +291,33 @@ public final class ServerPacketListener implements PacketListener {
         if (!gate(packet)) return;
         LOGGER.log(Level.FINEST, "{0} KeepAlive token=0x{1} (state={2})",
                 new Object[] { connection.logTag(), Integer.toHexString(packet.token), connection.state() });
+    }
+
+    // -------------------------------------------------------------- movement
+
+    @Override
+    public void handleMovePlayer(MovePlayerPacket packet) {
+        if (!gate(packet)) return;
+    }
+
+    @Override
+    public void handleMovePlayerPos(MovePlayerPosPacket packet) {
+        if (!gate(packet)) return;
+    }
+
+    @Override
+    public void handleMovePlayerRot(MovePlayerRotPacket packet) {
+        if (!gate(packet)) return;
+    }
+
+    @Override
+    public void handleMovePlayerPosRot(MovePlayerPosRotPacket packet) {
+        if (!gate(packet)) return;
+    }
+
+    @Override
+    public void handlePlayerCommand(PlayerCommandPacket packet) {
+        if (!gate(packet)) return;
     }
 
     // -------------------------------------------------------------- Disconnect

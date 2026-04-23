@@ -4,9 +4,15 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
 import dev.endcity.network.packets.play.ChunkVisibilityPacket;
+import dev.endcity.network.packets.play.MovePlayerPacket;
+import dev.endcity.network.packets.play.MovePlayerPosPacket;
+import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
+import dev.endcity.network.packets.play.MovePlayerRotPacket;
 import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
+import dev.endcity.network.packets.play.PlayerCommandPacket;
 import dev.endcity.network.packets.play.SetHealthPacket;
 import dev.endcity.network.packets.play.SetSpawnPositionPacket;
 import dev.endcity.network.packets.play.SetTimePacket;
@@ -44,13 +50,17 @@ public final class Packets {
         map(2,   PreLoginPacket::new,   true,  true);  // map(2,  true,true,true, false, PreLoginPacket)
         map(255, DisconnectPacket::new, true,  true);  // map(255,true,true,true, false, DisconnectPacket)
 
-        // M2 play-phase packets. All server-outbound only; client never sends these to us, so
-        // receiveOnServer=false. If a misbehaving or malicious client sends one, the decoder
-        // throws UnknownPacketIdException and the gate disconnects with UnexpectedPacket.
+        // M2 play-phase packets.
         map(4,   SetTimePacket::new,             false, true);  // [Long gameTime][Long dayTime]
         map(6,   SetSpawnPositionPacket::new,    false, true);  // [Int x][Int y][Int z]
         map(8,   SetHealthPacket::new,           false, true);  // [Float h][Short food][Float sat][Byte dmg]
+        map(10,  MovePlayerPacket::new,          true,  true);  // onGround/isFlying flags only
+        map(11,  MovePlayerPosPacket::new,       true,  true);  // position + flags
+        map(12,  MovePlayerRotPacket::new,       true,  true);  // rotation + flags
+        map(13,  MovePlayerPosRotPacket::new,    true,  true);  // full movement / teleport
+        map(19,  PlayerCommandPacket::new,       true,  true);  // sneak/sprint/sleep state changes
         map(50,  ChunkVisibilityPacket::new,     false, true);  // [Int x][Int z][Byte visible]
+        map(51,  BlockRegionUpdatePacket::new,   false, true);  // chunk bulk data, RLE+zlib
         map(155, ChunkVisibilityAreaPacket::new, false, true);  // [Int minX][Int maxX][Int minZ][Int maxZ]
         map(202, PlayerAbilitiesPacket::new,     false, true);  // [Byte flags][Float flySp][Float walkSp]
     }

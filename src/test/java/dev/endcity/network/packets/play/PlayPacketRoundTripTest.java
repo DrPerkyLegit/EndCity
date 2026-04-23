@@ -232,6 +232,35 @@ final class PlayPacketRoundTripTest {
                 () -> new PlayerAbilitiesPacket().handle(NOOP_LISTENER));
     }
 
+    // ---------------------------------------------------------------- PlayerCommandPacket (id=19)
+
+    @Test
+    void playerCommandPacket_id_is_19() {
+        assertEquals(19, new PlayerCommandPacket().getId());
+    }
+
+    @Test
+    void playerCommandPacket_roundTrip_exactWireLayout() throws IOException {
+        PlayerCommandPacket out = new PlayerCommandPacket(0x01020304, PlayerCommandPacket.START_SPRINTING, 0x11223344);
+
+        PacketBuffer w = PacketBuffer.allocate(9);
+        out.write(w);
+        byte[] wire = w.toByteArray();
+
+        assertEquals(9, wire.length);
+        assertArrayEquals(new byte[] {
+                0x01, 0x02, 0x03, 0x04,
+                0x04,
+                0x11, 0x22, 0x33, 0x44
+        }, wire);
+
+        PlayerCommandPacket back = new PlayerCommandPacket();
+        back.read(readFrom(wire));
+        assertEquals(0x01020304, back.entityId);
+        assertEquals(PlayerCommandPacket.START_SPRINTING, back.action);
+        assertEquals(0x11223344, back.data);
+    }
+
     // ---------------------------------------------------------------- ChunkVisibilityPacket (id=50)
 
     @Test

@@ -50,6 +50,9 @@ public abstract class Packet {
     /** Dispatch to the appropriate {@code handleXxx} method on the listener. */
     public abstract void handle(PacketListener listener) throws IOException;
 
+    /** Initial body-buffer capacity used by {@link #encode()}. Large packets override this. */
+    protected int estimatedBodySize() { return 1024; }
+
     // -------------------------------------------------------------- framing helpers
 
     /**
@@ -58,7 +61,7 @@ public abstract class Packet {
      */
     public ByteBuffer encode() throws IOException {
         // Write [id][body] into an inner buffer first so we know the length.
-        PacketBuffer inner = PacketBuffer.allocate(1024);
+        PacketBuffer inner = PacketBuffer.allocate(1 + estimatedBodySize());
         inner.writeByte(getId());
         write(inner);
         byte[] body = inner.toByteArray();
