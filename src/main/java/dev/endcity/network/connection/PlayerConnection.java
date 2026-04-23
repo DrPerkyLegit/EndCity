@@ -60,6 +60,51 @@ public final class PlayerConnection {
     /** Timestamp of connection acceptance; used for the M1 LoginTooLong watchdog. */
     private final long acceptedAtNanos;
 
+    // ---------------------------------------------------------------- TEMPORARY: handshake byte log (M2 investigation)
+    //
+    // Accumulates every byte the client sends us up to HANDSHAKE_BYTE_LOG_CAP, so we can hex-dump
+    // the stream when decoding fails during Pending/Login. Remove this block + the corresponding
+    // appendToByteLog() callsite in ConnectionThread.handleRead once the PreLogin desync is fixed.
+    private static final int HANDSHAKE_BYTE_LOG_CAP = 2048;
+    private final byte[] handshakeByteLog = new byte[HANDSHAKE_BYTE_LOG_CAP];
+    private int handshakeByteLogPos;
+
+    /** Append up to {@code HANDSHAKE_BYTE_LOG_CAP} bytes; silently drops excess once full. */
+    public void appendToByteLog(ByteBuffer src, int startPosition, int endPosition) {
+        int len = endPosition - startPosition;
+        if (len <= 0) return;
+        int space = HANDSHAKE_BYTE_LOG_CAP - handshakeByteLogPos;
+        if (space <= 0) return;
+        int copyLen = Math.min(len, space);
+        for (int i = 0; i < copyLen; i++) {
+            handshakeByteLog[handshakeByteLogPos + i] = src.get(startPosition + i);
+        }
+        handshakeByteLogPos += copyLen;
+    }
+
+    /** Hex-dump the byte log in {@code offset  hh hh hh ... | ascii} rows of 16. */
+    public String byteLogHexDump() {
+        if (handshakeByteLogPos == 0) return "(no bytes recorded)";
+        StringBuilder sb = new StringBuilder(handshakeByteLogPos * 4);
+        sb.append("inbound bytes (").append(handshakeByteLogPos).append(" total):\n");
+        for (int i = 0; i < handshakeByteLogPos; i += 16) {
+            sb.append(String.format("  %04x  ", i));
+            int rowEnd = Math.min(i + 16, handshakeByteLogPos);
+            for (int j = i; j < i + 16; j++) {
+                if (j < rowEnd) sb.append(String.format("%02x ", handshakeByteLog[j] & 0xFF));
+                else sb.append("   ");
+            }
+            sb.append(" |");
+            for (int j = i; j < rowEnd; j++) {
+                int b = handshakeByteLog[j] & 0xFF;
+                sb.append((b >= 0x20 && b < 0x7F) ? (char) b : '.');
+            }
+            sb.append("|\n");
+        }
+        return sb.toString();
+    }
+    // ---------------------------------------------------------------- end temporary block
+
     /**
      * The {@code ConnectionThread} currently owning this connection's selector key. Set exactly once
      * during registration and read by the keep-alive scheduler to route {@code notifyOutboundReady}
@@ -164,6 +209,9 @@ public final class PlayerConnection {
      *   <li>the buffer is drained; or</li>
      *   <li>a partial packet is encountered (buffer underflow): the remaining bytes are preserved
      *       for the next call; or</li>
+     *   <li>a handler flags the connection as {@link #isClosing() closing} — further buffered bytes
+     *       are not dispatched (interpreting them against a connection we've already decided to
+     *       kick can produce bogus IOExceptions on pipelined wrong-state streams); or</li>
      *   <li>a dispatch throws or an unknown packet id arrives: propagated to the caller which
      *       should disconnect.</li>
      * </ul>
@@ -179,6 +227,11 @@ public final class PlayerConnection {
                 Packet p = Packet.tryDecode(inbound);
                 if (p == null) break; // partial frame, wait for more bytes
                 p.handle(listener);
+                // A handler may have queued a DisconnectPacket and flagged us as closing. Don't
+                // dispatch any further buffered packets — the connection is about to be torn down
+                // and we don't want to interpret more bytes (which might be part of a pipelined
+                // stream) and risk throwing a misleading decode error after the real root cause.
+                if (isClosing()) break;
             }
         } finally {
             // Shuffle any un-consumed bytes to the front and restore write mode (position = #leftover,

@@ -149,10 +149,20 @@ public final class ConnectionThread extends Thread {
                         // Key cancelled between isValid() and the op; teardown has already happened.
                     } catch (IOException e) {
                         LOGGER.log(Level.WARNING, conn.logTag() + " I/O error, disconnecting: " + e.getMessage());
+                        // TEMPORARY: dump captured handshake bytes to diagnose PreLogin desync.
+                        if (conn.state() != ConnectionState.Play) {
+                            LOGGER.log(Level.WARNING, "{0} handshake byte trace:\n{1}",
+                                    new Object[] { conn.logTag(), conn.byteLogHexDump() });
+                        }
                         teardown(conn, key);
                     } catch (Packet.UnknownPacketIdException e) {
                         LOGGER.log(Level.WARNING, "{0} unknown/wrong-state packet id {1}; disconnecting",
                                 new Object[] { conn.logTag(), e.id });
+                        // TEMPORARY: dump captured handshake bytes to diagnose PreLogin desync.
+                        if (conn.state() != ConnectionState.Play) {
+                            LOGGER.log(Level.WARNING, "{0} handshake byte trace:\n{1}",
+                                    new Object[] { conn.logTag(), conn.byteLogHexDump() });
+                        }
                         // Stream is desynced — the client's next bytes would be misinterpreted if we
                         // tried to keep reading. But the socket itself is still healthy, so a
                         // best-effort DisconnectPacket gives the client a clean reason to show the
@@ -314,6 +324,10 @@ public final class ConnectionThread extends Thread {
         }
         if (n > 0) {
             conn.markActivity();
+            // TEMPORARY: capture the just-read bytes for post-mortem hex-dump of the handshake
+            // stream. Remove alongside the handshake byte log in PlayerConnection.
+            int writePos = conn.inbound().position();
+            conn.appendToByteLog(conn.inbound(), writePos - n, writePos);
             LOGGER.log(Level.FINEST, "{0} read {1} bytes (accum={2})",
                     new Object[] { conn.logTag(), n, conn.inbound().position() });
 

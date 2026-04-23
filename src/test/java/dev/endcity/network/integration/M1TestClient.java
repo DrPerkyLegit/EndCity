@@ -57,20 +57,38 @@ public final class M1TestClient implements AutoCloseable {
     }
 
     /**
-     * Read the next framed packet from the socket. Determines size from the packet id — this
-     * works because the M1 packets all have a known fixed or length-prefixed structure, so we can
-     * read exactly the right number of bytes per type.
+     * Read the next framed packet from the socket. Wire format is
+     * {@code [4-byte BE length][1 byte id][body]}; we read the length first, then exactly that
+     * many bytes for the id + body, then parse.
      */
     public dev.endcity.network.packets.Packet readPacket() throws IOException {
-        int id = socket.getInputStream().read();
-        if (id < 0) throw new IOException("peer closed before next packet");
-        return switch (id) {
-            case 0   -> decode(new KeepAlivePacket(),  4);   // Int token
-            case 1   -> decodeLogin();
-            case 2   -> decodePreLogin();
-            case 255 -> decode(new DisconnectPacket(), 4);   // Int reason
+        byte[] header = readFully(4);
+        int packetSize = ((header[0] & 0xFF) << 24)
+                       | ((header[1] & 0xFF) << 16)
+                       | ((header[2] & 0xFF) << 8)
+                       |  (header[3] & 0xFF);
+        if (packetSize <= 0 || packetSize > 4 * 1024 * 1024) {
+            throw new IOException("invalid framed packet size: " + packetSize);
+        }
+
+        byte[] frame = readFully(packetSize);
+        int id = frame[0] & 0xFF;
+        byte[] body = new byte[packetSize - 1];
+        System.arraycopy(frame, 1, body, 0, body.length);
+
+        dev.endcity.network.packets.Packet target = switch (id) {
+            case 0   -> new KeepAlivePacket();
+            case 1   -> new LoginPacket();
+            case 2   -> new PreLoginPacket();
+            case 255 -> new DisconnectPacket();
             default  -> throw new IOException("unexpected packet id=" + id);
         };
+        try {
+            target.read(PacketBuffer.wrap(ByteBuffer.wrap(body)));
+        } catch (IOException e) {
+            throw new IOException("decode(" + target.getClass().getSimpleName() + ") failed: " + e.getMessage(), e);
+        }
+        return target;
     }
 
     private <T extends dev.endcity.network.packets.Packet> T decode(T target, int bodyLen) throws IOException {
@@ -96,6 +114,9 @@ public final class M1TestClient implements AutoCloseable {
      * buffer and retries the packet's {@code read()} until it succeeds without underflow. The
      * one-byte granularity avoids over-reading, which matters because over-read bytes would belong
      * to the next packet and be lost.
+     *
+     * <p>Kept for any callers that pre-date the length-prefixed {@link #readPacket()} path; new
+     * code should use {@link #readPacket()} which reads a known-size frame up front.
      */
     private <T extends dev.endcity.network.packets.Packet> T decodeIncrementally(T target) throws IOException {
         byte[] accum = new byte[0];
