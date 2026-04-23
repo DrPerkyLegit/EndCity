@@ -1,5 +1,7 @@
 package dev.endcity.network;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Transport-layer constants for the LCE Win64 wire protocol.
  *
@@ -79,6 +81,29 @@ public final class NetworkConstants {
 
     /** Special sentinel player-UID value. From {@code Common/Network/NetworkPlayerInterface.h::INVALID_XUID}. */
     public static final long INVALID_XUID = 0L;
+
+    // ---------------------------------------------------------------- watchdog thresholds
+
+    /**
+     * Keep-alive send threshold. Source: 20 ticks = 1 s
+     * ({@code Minecraft.Client/PlayerConnection.cpp:128} — {@code tickCount - lastKeepAliveTick > 20}).
+     *
+     * <p>We subtract 50 ms of slop because the selector wakes up at roughly 1 Hz: if we compared
+     * against a full 1000 ms, minor drift (sometimes the tick fires 999.8 ms after the last, sometimes
+     * 1000.2 ms) would cause keep-alives to alternate between 1 s and 2 s intervals. Using 950 ms
+     * here means every selector tick where the connection is in {@code Play} and the last keep-alive
+     * is at least 950 ms old will emit one — which, at a 1 Hz tick rate, is every tick.
+     */
+    public static final long KEEP_ALIVE_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(950);
+
+    /** In-Play timeout. Source: {@code MAX_TICKS_WITHOUT_INPUT = 20*60} = 60 s. */
+    public static final long TIMEOUT_NANOS_DEFAULT = TimeUnit.SECONDS.toNanos(60);
+
+    /** Pre-Play timeout. Source: {@code MAX_TICKS_BEFORE_LOGIN = 20*30} = 30 s. */
+    public static final long LOGIN_TOO_LONG_NANOS_DEFAULT = TimeUnit.SECONDS.toNanos(30);
+
+    /** How often the connection threads run keep-alive / timeout checks. 1 Hz. */
+    public static final long WATCHDOG_TICK_INTERVAL_MS = 1000L;
 
     /**
      * Ordinals of {@code DisconnectPacket::eDisconnectReason} from the source. Only the subset used

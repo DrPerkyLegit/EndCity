@@ -3,7 +3,6 @@ package dev.endcity.network;
 import dev.endcity.network.connection.PlayerConnection;
 import dev.endcity.network.threads.BroadcastingThread;
 import dev.endcity.network.threads.ConnectionThread;
-import dev.endcity.network.threads.KeepAliveWatchdog;
 import dev.endcity.network.utils.SmallIdPool;
 
 import java.io.IOException;
@@ -39,7 +38,6 @@ public final class NetworkManager {
 
     private final BroadcastingThread broadcastThread;
     private final List<ConnectionThread> connectionThreads;
-    private final KeepAliveWatchdog keepAliveWatchdog;
     private final SmallIdPool smallIdPool = new SmallIdPool();
     private final AtomicInteger roundRobin = new AtomicInteger();
 
@@ -58,13 +56,13 @@ public final class NetworkManager {
 
     public NetworkManager() {
         this(NetworkConstants.WIN64_NET_DEFAULT_PORT,
-                KeepAliveWatchdog.TIMEOUT_NANOS_DEFAULT,
-                KeepAliveWatchdog.LOGIN_TOO_LONG_NANOS_DEFAULT);
+                NetworkConstants.TIMEOUT_NANOS_DEFAULT,
+                NetworkConstants.LOGIN_TOO_LONG_NANOS_DEFAULT);
     }
 
     /** Test-only / advanced: use port 0 for an ephemeral port, then query {@link #boundPort()}. */
     public NetworkManager(int port) {
-        this(port, KeepAliveWatchdog.TIMEOUT_NANOS_DEFAULT, KeepAliveWatchdog.LOGIN_TOO_LONG_NANOS_DEFAULT);
+        this(port, NetworkConstants.TIMEOUT_NANOS_DEFAULT, NetworkConstants.LOGIN_TOO_LONG_NANOS_DEFAULT);
     }
 
     /**
@@ -79,12 +77,11 @@ public final class NetworkManager {
         this.connectionThreads = new ArrayList<>(CONNECTION_THREAD_COUNT);
         try {
             for (int i = 0; i < CONNECTION_THREAD_COUNT; i++) {
-                connectionThreads.add(new ConnectionThread(this, i));
+                connectionThreads.add(new ConnectionThread(this, i, timeoutNanos, loginTooLongNanos));
             }
         } catch (IOException e) {
             throw new IllegalStateException("failed to open selector for connection thread", e);
         }
-        this.keepAliveWatchdog = new KeepAliveWatchdog(this, connectionThreads, timeoutNanos, loginTooLongNanos);
     }
 
     public SmallIdPool smallIdPool() { return smallIdPool; }
@@ -96,7 +93,6 @@ public final class NetworkManager {
     public void listen() {
         for (ConnectionThread t : connectionThreads) t.start();
         broadcastThread.start();
-        keepAliveWatchdog.start();
         try { broadcastThread.awaitBound(); }
         catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         LOGGER.log(Level.INFO, "NetworkManager listening on port {0} with {1} connection threads (pool capacity={2})",
@@ -108,13 +104,11 @@ public final class NetworkManager {
     }
 
     /**
-     * Test-only: shut everything down. Interrupts the accept thread and every connection thread,
-     * stops the keep-alive scheduler, and waits briefly for clean termination. Does <em>not</em>
-     * attempt graceful per-connection disconnects — the {@code finally} block in each
-     * {@code ConnectionThread.run()} handles that.
+     * Test-only: shut everything down. Interrupts the accept thread and every connection thread
+     * and waits briefly for clean termination. The {@code finally} block in each
+     * {@code ConnectionThread.run()} handles graceful per-connection disconnects.
      */
     public void stop() {
-        keepAliveWatchdog.stop();
         broadcastThread.interrupt();
         for (ConnectionThread t : connectionThreads) t.interrupt();
         try {
