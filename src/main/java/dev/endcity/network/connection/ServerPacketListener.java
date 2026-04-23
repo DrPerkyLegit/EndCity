@@ -40,19 +40,36 @@ public final class ServerPacketListener implements PacketListener {
      * Check whether {@code packet} is legal in the current {@link ConnectionState}. If not, logs,
      * emits an {@code eDisconnect_UnexpectedPacket}, and returns {@code false}.
      *
-     * <p>Legality matrix:
+     * <p>Legality matrix, source-verified against {@code Minecraft.Client/PendingConnection.cpp}.
+     * The source has a single listener ({@code PendingConnection}) handling both the pre-login and
+     * login phases — both PreLogin and Login are acceptable in either of our {@code Pending} and
+     * {@code Login} states. The handshake sequence is:
+     * <ol>
+     *   <li>{@code C->S PreLogin} (id=2) — handled in {@code Pending}; server replies with
+     *       {@code S->C PreLoginResponse} (also id=2) and stays in {@code Pending}.</li>
+     *   <li>{@code C->S Login} (id=1) — handled in {@code Pending}; server transitions to
+     *       {@code Login}, processes, replies with {@code S->C LoginResponse} (id=1), and
+     *       transitions to {@code Play}.</li>
+     * </ol>
+     *
      * <ul>
-     *   <li>{@code Pending}: {@link PreLoginPacket} (2), {@link DisconnectPacket} (255)</li>
-     *   <li>{@code Login}:   {@link LoginPacket} (1),    {@link DisconnectPacket} (255)</li>
-     *   <li>{@code Play}:    any packet registered as {@code receiveOnServer=true}</li>
+     *   <li>{@code Pending}: {@link PreLoginPacket} (2), {@link LoginPacket} (1),
+     *       {@link KeepAlivePacket} (0), {@link DisconnectPacket} (255). KeepAlive is silently
+     *       ignored by the source's {@code handleKeepAlive} — treating it as an unexpected packet
+     *       kicks real clients because they do send keep-alives during handshake.</li>
+     *   <li>{@code Login}: {@link KeepAlivePacket} (0), {@link DisconnectPacket} (255). This state
+     *       is transient — the server is building and sending the LoginResponse. The client
+     *       shouldn't normally send anything new here.</li>
+     *   <li>{@code Play}: any packet registered as {@code receiveOnServer=true}.</li>
      * </ul>
      */
     private boolean gate(Packet packet) {
         ConnectionState s = connection.state();
         int id = packet.getId();
         boolean ok = switch (s) {
-            case Pending -> id == 2 /*PreLogin*/ || id == 255 /*Disconnect*/;
-            case Login   -> id == 1 /*Login*/    || id == 255 /*Disconnect*/;
+            case Pending -> id == 2 /*PreLogin*/ || id == 1 /*Login*/
+                         || id == 0 /*KeepAlive*/ || id == 255 /*Disconnect*/;
+            case Login   -> id == 0 /*KeepAlive*/ || id == 255 /*Disconnect*/;
             case Play    -> true;
         };
         if (!ok) {
@@ -98,43 +115,46 @@ public final class ServerPacketListener implements PacketListener {
             return;
         }
 
-        // No split-screen (see PLAN.md §7.7). Exactly one XUID expected.
-        if (packet.playerCount != 1) {
-            LOGGER.log(Level.INFO, "{0} playerCount={1}, split-screen not supported",
+        // playerCount is informational, not gating. The real LCE Win64 client sends 0 for
+        // single-player remote join; the reference dedicated server
+        // (.MinecraftLegacyEdition/server/src/core/PacketHandler.cpp::ReadPreLogin) reads the
+        // field but does no validation on it. PLAN.md §7.7 guessed this was split-screen
+        // gating — it's not, and kicking on playerCount != 1 refuses every real client.
+        // For M1 we accept any value; proper split-screen handling is deferred.
+        if (packet.playerCount > 1) {
+            LOGGER.log(Level.INFO, "{0} playerCount={1} (split-screen, treated as single player)",
                     new Object[] { connection.logTag(), packet.playerCount });
-            sendDisconnect(NetworkConstants.DisconnectReason.NO_MULTIPLAYER_PRIVILEGES_JOIN);
-            return;
         }
 
-        // Construct the server-side LoginPacket and send. Field values per PLAN.md §3 M1.
-        LoginPacket response = new LoginPacket();
-        response.clientVersion         = NetworkConstants.NETWORK_PROTOCOL_VERSION;    // 78
-        response.userName              = packet.loginKey;
-        response.levelTypeName         = "default";                                    // placeholder until world gen
-        response.seed                  = 0L;                                           // placeholder
-        response.gameType              = 0;                                            // Survival
-        response.dimension             = 0;                                            // Overworld
-        response.mapHeight             = 0;                                            // (byte)256 per source
-        response.maxPlayers            = (byte) networkManager.maxPlayers();
-        response.offlineXuid           = NetworkConstants.INVALID_XUID;
-        response.onlineXuid            = NetworkConstants.INVALID_XUID;
-        response.friendsOnlyUGC        = false;
-        response.ugcPlayersVersion     = 0;
-        response.difficulty            = 1;                                            // Easy
-        response.multiplayerInstanceId = networkManager.multiplayerInstanceId();
-        response.playerIndex           = (byte) connection.smallId();
-        response.playerSkinId          = 0;
-        response.playerCapeId          = 0;
-        response.isGuest               = false;
-        response.newSeaLevel           = true;
-        response.uiGamePrivileges      = 0;
-        response.xzSize                = NetworkConstants.LEVEL_MAX_WIDTH;             // 320
-        response.hellScale             = NetworkConstants.HELL_LEVEL_MAX_SCALE;        // 8
+        // Build the server-side PreLoginResponse. Values mirror
+        // .MinecraftLegacyEdition/server/src/core/PacketHandler.cpp::WritePreLoginResponse and the
+        // source's PendingConnection::sendPreLoginResponse. This is what the client actually
+        // expects back after its own PreLogin — NOT a LoginPacket. Sending LoginPacket here leaves
+        // the client stuck in its equivalent of "Pending" forever (we observed this: black screen,
+        // no C->S Login ever sent, 30s watchdog fires).
+        //
+        // Key fields:
+        //   loginKey         = "-"  (convention: non-online-mode server)
+        //   playerXuids      = []   (no existing UGC players on empty server)
+        //   uniqueSaveName   = 14 zero bytes (placeholder until real world load in M2)
+        //   serverSettings   = 0    (no UGC restrictions; M3+ fills this in)
+        //
+        // State does NOT transition here — we stay in Pending waiting for the client's Login.
+        PreLoginPacket response = new PreLoginPacket();
+        response.netcodeVersion    = (short) NetworkConstants.MINECRAFT_NET_VERSION;
+        response.loginKey          = "-";
+        response.friendsOnlyBits   = 0;
+        response.ugcPlayersVersion = 0;
+        response.playerCount       = 0;
+        response.playerXuids       = new long[0];
+        // uniqueSaveName is already zero-initialized
+        response.serverSettings    = 0;
+        response.hostIndex         = 0;
+        response.texturePackId     = 0;
 
         connection.sendPacket(response);
-        connection.transitionTo(ConnectionState.Login);
-        LOGGER.log(Level.INFO, "{0} PreLogin OK; server LoginPacket sent (userName={1})",
-                new Object[] { connection.logTag(), response.userName });
+        LOGGER.log(Level.INFO, "{0} PreLogin OK; server PreLoginResponse sent, awaiting client Login",
+                new Object[] { connection.logTag() });
     }
 
     // -------------------------------------------------------------- Login → Play transition
@@ -154,23 +174,72 @@ public final class ServerPacketListener implements PacketListener {
                         packet.playerCapeId
                 });
 
-        // No validation necessary for M1 — any structurally-valid LoginPacket from the client
-        // completes the handshake. Later milestones will cross-check offline/online XUIDs and skin
-        // ids against whitelists/bans/etc.
+        // Enter Login state briefly while we build and send the response.
+        connection.transitionTo(ConnectionState.Login);
+
+        // Build server-side LoginResponse. Mirrors the reference server's WriteLoginResponse
+        // (.MinecraftLegacyEdition/server/src/core/PacketHandler.cpp) and the source's
+        // LoginPacket::write. In S->C direction:
+        //   - clientVersion field carries the assigned entityId (NOT the protocol version).
+        //     This is a source quirk: LoginPacket::m_iClientVersion is reused.
+        //   - userName echoes the client's chosen name.
+        //   - offlineXuid and onlineXuid are INVALID_XUID (server doesn't have player-scoped
+        //     UIDs in offline mode).
+        //   - playerIndex is the connection's smallId.
+        //   - _LARGE_WORLDS trailing fields (xzSize, hellScale) are always present on Win64.
+        LoginPacket response = new LoginPacket();
+        response.clientVersion         = connection.smallId();                         // entityId in S->C
+        response.userName              = packet.userName != null && !packet.userName.isEmpty()
+                                          ? packet.userName
+                                          : "-";
+        response.levelTypeName         = "default";
+        response.seed                  = 0L;
+        response.gameType              = 0;                                            // Survival
+        response.dimension             = 0;                                            // Overworld
+        response.mapHeight             = 0;                                            // source writes (byte)256
+        response.maxPlayers            = (byte) networkManager.maxPlayers();
+        response.offlineXuid           = NetworkConstants.INVALID_XUID;
+        response.onlineXuid            = NetworkConstants.INVALID_XUID;
+        response.friendsOnlyUGC        = false;
+        response.ugcPlayersVersion     = 0;
+        response.difficulty            = 1;                                            // Easy
+        response.multiplayerInstanceId = networkManager.multiplayerInstanceId();
+        response.playerIndex           = (byte) connection.smallId();
+        response.playerSkinId          = 0;
+        response.playerCapeId          = 0;
+        response.isGuest               = false;
+        response.newSeaLevel           = true;
+        response.uiGamePrivileges      = 0;
+        response.xzSize                = NetworkConstants.LEVEL_MAX_WIDTH;             // 320
+        response.hellScale             = NetworkConstants.HELL_LEVEL_MAX_SCALE;        // 8
+
+        connection.sendPacket(response);
         connection.transitionTo(ConnectionState.Play);
-        LOGGER.log(Level.INFO, "{0} handshake complete, entered Play", connection.logTag());
-        // Keep-alive scheduling is chunk 8.
+        LOGGER.log(Level.INFO, "{0} handshake complete, entered Play (userName={1}, entityId={2})",
+                new Object[] { connection.logTag(), response.userName, response.clientVersion });
+        // World data (M2) would be sent next: SetTime, SetSpawnPosition, SetHealth,
+        // PlayerAbilities, ChunkVisibilityArea, ChunkVisibility, ChunkTilesUpdate, AddPlayer.
     }
 
     // -------------------------------------------------------------- KeepAlive
 
+    /**
+     * Server-side KeepAlive handling.
+     *
+     * <p>In {@code Pending}/{@code Login}: source ({@code PendingConnection.cpp:358}) silently
+     * ignores these. Real clients emit keep-alives during the handshake phase; rejecting them with
+     * UNEXPECTED_PACKET kicks live clients immediately after the small-ID handshake.
+     *
+     * <p>In {@code Play}: liveness is already maintained via {@code markActivity()} on any byte
+     * arrival. Matching the echoed token against the last-sent token to compute round-trip latency
+     * is a chunk 8+ feature (see {@code Minecraft.Client/PlayerConnection.cpp:1370}). For now we
+     * just log.
+     */
     @Override
     public void handleKeepAlive(KeepAlivePacket packet) {
         if (!gate(packet)) return;
-        // Any byte arrival already bumped lastPacketReceivedAtNanos in ConnectionThread.handleRead.
-        // The token match is only used for latency computation (chunk 8+).
-        LOGGER.log(Level.FINEST, "{0} KeepAlive token=0x{1}",
-                new Object[] { connection.logTag(), Integer.toHexString(packet.token) });
+        LOGGER.log(Level.FINEST, "{0} KeepAlive token=0x{1} (state={2})",
+                new Object[] { connection.logTag(), Integer.toHexString(packet.token), connection.state() });
     }
 
     // -------------------------------------------------------------- Disconnect
