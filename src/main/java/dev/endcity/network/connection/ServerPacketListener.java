@@ -27,7 +27,6 @@ import dev.endcity.world.chunk.FlatChunk;
 import dev.endcity.world.chunk.FlatChunkGenerator;
 import dev.endcity.world.entity.SynchedEntityData;
 
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

@@ -2,10 +2,8 @@ package dev.endcity;
 
 import dev.endcity.server.MinecraftServer;
 
-import java.io.IOException;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Formatter;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
