@@ -232,6 +232,71 @@ final class PlayPacketRoundTripTest {
                 () -> new PlayerAbilitiesPacket().handle(NOOP_LISTENER));
     }
 
+    // ---------------------------------------------------------------- AnimatePacket (id=18)
+
+    @Test
+    void animatePacket_id_is_18() {
+        assertEquals(18, new AnimatePacket().getId());
+    }
+
+    @Test
+    void animatePacket_roundTrip_exactWireLayout() throws IOException {
+        AnimatePacket out = new AnimatePacket(0x01020304, AnimatePacket.SWING);
+
+        PacketBuffer w = PacketBuffer.allocate(5);
+        out.write(w);
+        byte[] wire = w.toByteArray();
+
+        assertEquals(5, wire.length);
+        assertArrayEquals(new byte[] {
+                0x01, 0x02, 0x03, 0x04,
+                0x01
+        }, wire);
+
+        AnimatePacket back = new AnimatePacket();
+        back.read(readFrom(wire));
+        assertEquals(0x01020304, back.entityId);
+        assertEquals(AnimatePacket.SWING, back.action);
+    }
+
+    // ---------------------------------------------------------------- PlayerActionPacket (id=14)
+
+    @Test
+    void playerActionPacket_id_is_14() {
+        assertEquals(14, new PlayerActionPacket().getId());
+    }
+
+    @Test
+    void playerActionPacket_roundTrip_exactWireLayout() throws IOException {
+        PlayerActionPacket out = new PlayerActionPacket(
+                PlayerActionPacket.STOP_DESTROY_BLOCK,
+                0x01020304,
+                0x7F,
+                -0x07080910,
+                0x05);
+
+        PacketBuffer w = PacketBuffer.allocate(11);
+        out.write(w);
+        byte[] wire = w.toByteArray();
+
+        assertEquals(11, wire.length);
+        assertArrayEquals(new byte[] {
+                0x02,
+                0x01, 0x02, 0x03, 0x04,
+                0x7F,
+                (byte) 0xF8, (byte) 0xF7, (byte) 0xF6, (byte) 0xF0,
+                0x05
+        }, wire);
+
+        PlayerActionPacket back = new PlayerActionPacket();
+        back.read(readFrom(wire));
+        assertEquals(PlayerActionPacket.STOP_DESTROY_BLOCK, back.action);
+        assertEquals(0x01020304, back.x);
+        assertEquals(0x7F, back.y);
+        assertEquals(-0x07080910, back.z);
+        assertEquals(0x05, back.face);
+    }
+
     // ---------------------------------------------------------------- PlayerCommandPacket (id=19)
 
     @Test

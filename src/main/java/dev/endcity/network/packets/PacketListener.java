@@ -4,6 +4,8 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AnimatePacket;
+import dev.endcity.network.packets.play.PlayerActionPacket;
 import dev.endcity.network.packets.play.MovePlayerPacket;
 import dev.endcity.network.packets.play.MovePlayerPosPacket;
 import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
@@ -32,6 +34,8 @@ public interface PacketListener {
     default void handleLogin(LoginPacket packet)        throws IOException { onUnhandledPacket(packet); }
     default void handleDisconnect(DisconnectPacket packet) throws IOException { onUnhandledPacket(packet); }
     default void handleKeepAlive(KeepAlivePacket packet) throws IOException { onUnhandledPacket(packet); }
+    default void handleAnimate(AnimatePacket packet) throws IOException { onUnhandledPacket(packet); }
+    default void handlePlayerAction(PlayerActionPacket packet) throws IOException { onUnhandledPacket(packet); }
     default void handleMovePlayer(MovePlayerPacket packet) throws IOException { onUnhandledPacket(packet); }
     default void handleMovePlayerPos(MovePlayerPosPacket packet) throws IOException { onUnhandledPacket(packet); }
     default void handleMovePlayerRot(MovePlayerRotPacket packet) throws IOException { onUnhandledPacket(packet); }

@@ -8,6 +8,7 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AnimatePacket;
 import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
 import dev.endcity.network.packets.play.ChunkVisibilityPacket;
@@ -15,6 +16,7 @@ import dev.endcity.network.packets.play.MovePlayerPacket;
 import dev.endcity.network.packets.play.MovePlayerPosPacket;
 import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
 import dev.endcity.network.packets.play.MovePlayerRotPacket;
+import dev.endcity.network.packets.play.PlayerActionPacket;
 import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
 import dev.endcity.network.packets.play.PlayerCommandPacket;
 import dev.endcity.network.packets.play.SetHealthPacket;
@@ -294,6 +296,16 @@ public final class ServerPacketListener implements PacketListener {
     }
 
     // -------------------------------------------------------------- movement
+
+    @Override
+    public void handleAnimate(AnimatePacket packet) {
+        if (!gate(packet)) return;
+    }
+
+    @Override
+    public void handlePlayerAction(PlayerActionPacket packet) {
+        if (!gate(packet)) return;
+    }
 
     @Override
     public void handleMovePlayer(MovePlayerPacket packet) {

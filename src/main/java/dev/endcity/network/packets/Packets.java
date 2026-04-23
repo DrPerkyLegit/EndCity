@@ -4,6 +4,7 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AnimatePacket;
 import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
 import dev.endcity.network.packets.play.ChunkVisibilityPacket;
@@ -11,6 +12,7 @@ import dev.endcity.network.packets.play.MovePlayerPacket;
 import dev.endcity.network.packets.play.MovePlayerPosPacket;
 import dev.endcity.network.packets.play.MovePlayerPosRotPacket;
 import dev.endcity.network.packets.play.MovePlayerRotPacket;
+import dev.endcity.network.packets.play.PlayerActionPacket;
 import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
 import dev.endcity.network.packets.play.PlayerCommandPacket;
 import dev.endcity.network.packets.play.SetHealthPacket;
@@ -54,6 +56,8 @@ public final class Packets {
         map(4,   SetTimePacket::new,             false, true);  // [Long gameTime][Long dayTime]
         map(6,   SetSpawnPositionPacket::new,    false, true);  // [Int x][Int y][Int z]
         map(8,   SetHealthPacket::new,           false, true);  // [Float h][Short food][Float sat][Byte dmg]
+        map(18,  AnimatePacket::new,             true,  true);  // [Int entityId][Byte action]
+        map(14,  PlayerActionPacket::new,        true,  true);  // [Byte action][Int x][Byte y][Int z][Byte face]
         map(10,  MovePlayerPacket::new,          true,  true);  // onGround/isFlying flags only
         map(11,  MovePlayerPosPacket::new,       true,  true);  // position + flags
         map(12,  MovePlayerRotPacket::new,       true,  true);  // rotation + flags
