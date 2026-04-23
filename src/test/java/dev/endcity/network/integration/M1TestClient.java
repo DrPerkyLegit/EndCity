@@ -5,6 +5,7 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AddPlayerPacket;
 import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
 import dev.endcity.network.packets.play.ChunkVisibilityPacket;
@@ -92,6 +93,7 @@ public final class M1TestClient implements AutoCloseable {
             case 6   -> new SetSpawnPositionPacket();
             case 8   -> new SetHealthPacket();
             case 13  -> new MovePlayerPosRotPacket();
+            case 20  -> new AddPlayerPacket();
             case 50  -> new ChunkVisibilityPacket();
             case 51  -> new BlockRegionUpdatePacket();
             case 155 -> new ChunkVisibilityAreaPacket();
@@ -110,7 +112,8 @@ public final class M1TestClient implements AutoCloseable {
     /**
      * After receiving the server's LoginResponse (id=1), the server currently emits the M2.3
      * post-Login packet burst: SetSpawnPosition, PlayerAbilities, SetTime, ChunkVisibilityArea,
-     * then 9 ChunkVisibility + BlockRegionUpdate pairs, MovePlayerPosRot, and SetHealth. Consumes them so the
+     * then 9 ChunkVisibility + BlockRegionUpdate pairs, MovePlayerPosRot, SetHealth, and
+     * AddPlayer. Consumes them so the
      * caller can continue reading KeepAlives or a DisconnectPacket without handling this burst at
      * every call site.
      *
@@ -140,6 +143,8 @@ public final class M1TestClient implements AutoCloseable {
         if (!(move instanceof MovePlayerPosRotPacket)) throw new IOException("expected MovePlayerPosRot, got " + move.getClass().getSimpleName());
         var health = readPacket();
         if (!(health instanceof SetHealthPacket)) throw new IOException("expected SetHealth, got " + health.getClass().getSimpleName());
+        var addPlayer = readPacket();
+        if (!(addPlayer instanceof AddPlayerPacket)) throw new IOException("expected AddPlayer, got " + addPlayer.getClass().getSimpleName());
     }
 
     private <T extends dev.endcity.network.packets.Packet> T decode(T target, int bodyLen) throws IOException {

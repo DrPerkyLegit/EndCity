@@ -3,6 +3,7 @@ package dev.endcity.world.entity;
 import dev.endcity.network.utils.PacketBuffer;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -141,6 +142,40 @@ public final class SynchedEntityData {
             if (it != null) writeItem(buf, it);
         }
         buf.writeByte(EOF_MARKER);
+    }
+
+    /**
+     * Read one packed SynchedEntityData stream from {@code buf}, advancing it past the terminating
+     * EOF marker, and return the exact raw bytes consumed (including the EOF marker).
+     *
+     * <p>This is intentionally narrower than a full {@code unpack()} implementation: for the
+     * server's current needs we only need to preserve the on-wire bytes when decoding outbound-only
+     * packets in tests and helpers. The supported item types match the write path above.
+     */
+    public static byte[] readPackedBytes(PacketBuffer buf) throws IOException {
+        int start = buf.position();
+        while (true) {
+            int header = buf.readByte() & 0xFF;
+            if (header == EOF_MARKER) break;
+
+            int type = (header >>> TYPE_SHIFT) & 0x7;
+            switch (type) {
+                case TYPE_BYTE -> buf.readByte();
+                case TYPE_SHORT -> buf.readShort();
+                case TYPE_INT -> buf.readInt();
+                case TYPE_FLOAT -> buf.readFloat();
+                case TYPE_STRING -> buf.readLceUtf(MAX_STRING_DATA_LENGTH);
+                default -> throw new IOException("unsupported SynchedEntityData type " + type);
+            }
+        }
+
+        int end = buf.position();
+        ByteBuffer raw = buf.raw();
+        byte[] out = new byte[end - start];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = raw.get(start + i);
+        }
+        return out;
     }
 
     private static void writeItem(PacketBuffer buf, Item it) throws IOException {

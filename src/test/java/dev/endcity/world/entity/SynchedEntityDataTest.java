@@ -187,4 +187,17 @@ final class SynchedEntityDataTest {
         assertArrayEquals(new byte[] { 0x00, 0x09, 0x7F }, pack(sed));
         assertEquals(1, sed.size());
     }
+
+    @Test
+    void readPackedBytes_roundTripsExactBytes() throws IOException {
+        byte[] wire = new byte[] {
+            0x00, 0x00,
+            0x21, 0x01, 0x2C,
+            0x66, 0x41, (byte) 0xA0, 0x00, 0x00,
+            0x7F
+        };
+        PacketBuffer buf = PacketBuffer.wrap(java.nio.ByteBuffer.wrap(wire));
+        assertArrayEquals(wire, SynchedEntityData.readPackedBytes(buf));
+        assertEquals(wire.length, buf.position());
+    }
 }

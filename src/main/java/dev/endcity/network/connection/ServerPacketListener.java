@@ -8,6 +8,7 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AddPlayerPacket;
 import dev.endcity.network.packets.play.AnimatePacket;
 import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
@@ -24,6 +25,7 @@ import dev.endcity.network.packets.play.SetSpawnPositionPacket;
 import dev.endcity.network.packets.play.SetTimePacket;
 import dev.endcity.world.chunk.FlatChunk;
 import dev.endcity.world.chunk.FlatChunkGenerator;
+import dev.endcity.world.entity.SynchedEntityData;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -269,8 +271,22 @@ public final class ServerPacketListener implements PacketListener {
                 0.0f, 0.0f,
                 true, false));
         connection.sendPacket(new SetHealthPacket(20.0f, (short) 20, 5.0f, SetHealthPacket.DAMAGE_SOURCE_UNKNOWN));
+        SynchedEntityData addPlayerMetadata = AddPlayerPacket.defaultPlayerEntityData(20.0f);
+        connection.sendPacket(AddPlayerPacket.fromWorldState(
+                response.clientVersion,
+                response.userName,
+                8.5, spawnFeetY, 8.5,
+                0.0f, 0.0f, 0.0f,
+                (short) 0,
+                packet.offlineXuid,
+                packet.onlineXuid,
+                connection.smallId(),
+                packet.playerSkinId,
+                packet.playerCapeId,
+                response.uiGamePrivileges,
+                addPlayerMetadata));
         LOGGER.log(Level.INFO,
-                "{0} M2.3 post-Login world packets sent (setup + 3x3 BlockRegionUpdate flat chunks + local teleport)",
+                "{0} M2.4 post-Login world packets sent (setup + 3x3 BlockRegionUpdate flat chunks + local teleport + AddPlayer)",
                 new Object[] { connection.logTag() });
     }
 

@@ -326,6 +326,112 @@ final class PlayPacketRoundTripTest {
         assertEquals(0x11223344, back.data);
     }
 
+    // ---------------------------------------------------------------- AddPlayerPacket (id=20)
+
+    @Test
+    void addPlayerPacket_id_is_20() {
+        assertEquals(20, new AddPlayerPacket().getId());
+    }
+
+    @Test
+    void addPlayerPacket_defaultMetadata_matchesSourcePlayerLayout() throws IOException {
+        PacketBuffer w = PacketBuffer.allocate(64);
+        AddPlayerPacket.defaultPlayerEntityData(20.0f).packAll(w);
+        byte[] wire = w.toByteArray();
+
+        assertArrayEquals(new byte[] {
+                0x00, 0x00,                               // byte id=0 shared flags
+                0x21, 0x01, 0x2C,                         // short id=1 air = 300
+                0x66, 0x41, (byte) 0xA0, 0x00, 0x00,     // float id=6 health = 20
+                0x47, 0x00, 0x00, 0x00, 0x00,            // int id=7 effect color = 0
+                0x08, 0x00,                               // byte id=8 effect ambience = 0
+                0x09, 0x00,                               // byte id=9 arrow count = 0
+                0x10, 0x00,                               // byte id=16 player flags = 0
+                0x71, 0x00, 0x00, 0x00, 0x00,            // float id=17 absorption = 0
+                0x52, 0x00, 0x00, 0x00, 0x00,            // int id=18 score = 0
+                0x7F
+        }, wire);
+    }
+
+    @Test
+    void addPlayerPacket_roundTrip_exactWireLayout() throws IOException {
+        AddPlayerPacket out = AddPlayerPacket.fromWorldState(
+                4,
+                "Dan",
+                8.5, 5.00001, 8.5,
+                90.0f, 45.0f, 180.0f,
+                (short) 0,
+                0x1122334455667788L,
+                0x8877665544332211L,
+                4,
+                2,
+                3,
+                0,
+                AddPlayerPacket.defaultPlayerEntityData(20.0f));
+
+        PacketBuffer w = PacketBuffer.allocate(256);
+        out.write(w);
+        byte[] wire = w.toByteArray();
+
+        assertArrayEquals(new byte[] {
+                0x00, 0x00, 0x00, 0x04,                   // entityId
+                0x00, 0x03, 0x00, 'D', 0x00, 'a', 0x00, 'n',
+                0x00, 0x00, 0x01, 0x10,                   // x = floor(8.5 * 32) = 272
+                0x00, 0x00, 0x00, (byte) 0xA0,            // y = floor(5.00001 * 32) = 160
+                0x00, 0x00, 0x01, 0x10,                   // z = 272
+                0x40,                                     // yRot = 90 * 256 / 360 = 64
+                0x20,                                     // xRot = 45 * 256 / 360 = 32
+                (byte) 0x80,                              // yHeadRot = 180 * 256 / 360 = 128
+                0x00, 0x00,                               // carried item
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, (byte) 0x88,
+                (byte) 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+                0x04,                                     // player index
+                0x00, 0x00, 0x00, 0x02,                   // skin id
+                0x00, 0x00, 0x00, 0x03,                   // cape id
+                0x00, 0x00, 0x00, 0x00,                   // privileges
+                0x00, 0x00,
+                0x21, 0x01, 0x2C,
+                0x66, 0x41, (byte) 0xA0, 0x00, 0x00,
+                0x47, 0x00, 0x00, 0x00, 0x00,
+                0x08, 0x00,
+                0x09, 0x00,
+                0x10, 0x00,
+                0x71, 0x00, 0x00, 0x00, 0x00,
+                0x52, 0x00, 0x00, 0x00, 0x00,
+                0x7F
+        }, wire);
+
+        AddPlayerPacket back = new AddPlayerPacket();
+        back.read(readFrom(wire));
+        assertEquals(4, back.entityId);
+        assertEquals("Dan", back.name);
+        assertEquals(272, back.x);
+        assertEquals(160, back.y);
+        assertEquals(272, back.z);
+        assertEquals(64, back.yRot);
+        assertEquals(32, back.xRot);
+        assertEquals(128, back.yHeadRot);
+        assertEquals((short) 0, back.carriedItem);
+        assertEquals(0x1122334455667788L, back.offlineXuid);
+        assertEquals(0x8877665544332211L, back.onlineXuid);
+        assertEquals(4, back.playerIndex);
+        assertEquals(2, back.skinId);
+        assertEquals(3, back.capeId);
+        assertEquals(0, back.privileges);
+        assertArrayEquals(new byte[] {
+                0x00, 0x00,
+                0x21, 0x01, 0x2C,
+                0x66, 0x41, (byte) 0xA0, 0x00, 0x00,
+                0x47, 0x00, 0x00, 0x00, 0x00,
+                0x08, 0x00,
+                0x09, 0x00,
+                0x10, 0x00,
+                0x71, 0x00, 0x00, 0x00, 0x00,
+                0x52, 0x00, 0x00, 0x00, 0x00,
+                0x7F
+        }, back.packedEntityData);
+    }
+
     // ---------------------------------------------------------------- ChunkVisibilityPacket (id=50)
 
     @Test

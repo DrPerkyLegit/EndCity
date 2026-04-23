@@ -4,6 +4,7 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.AddPlayerPacket;
 import dev.endcity.network.packets.play.AnimatePacket;
 import dev.endcity.network.packets.play.BlockRegionUpdatePacket;
 import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
@@ -63,6 +64,7 @@ public final class Packets {
         map(12,  MovePlayerRotPacket::new,       true,  true);  // rotation + flags
         map(13,  MovePlayerPosRotPacket::new,    true,  true);  // full movement / teleport
         map(19,  PlayerCommandPacket::new,       true,  true);  // sneak/sprint/sleep state changes
+        map(20,  AddPlayerPacket::new,           false, false); // remote-player spawn
         map(50,  ChunkVisibilityPacket::new,     false, true);  // [Int x][Int z][Byte visible]
         map(51,  BlockRegionUpdatePacket::new,   false, true);  // chunk bulk data, RLE+zlib
         map(155, ChunkVisibilityAreaPacket::new, false, true);  // [Int minX][Int maxX][Int minZ][Int maxZ]
