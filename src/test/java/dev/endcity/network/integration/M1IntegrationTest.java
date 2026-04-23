@@ -199,6 +199,7 @@ final class M1IntegrationTest {
             client.send(M1TestClient.buildClientLogin("Dan"));
             var loginResponse = client.readPacket();
             assertInstanceOf(LoginPacket.class, loginResponse);
+            client.drainM2PostLoginBurst();
 
             // Collect 3 keep-alives and verify they land within the 1.5 s slop.
             client.setReadTimeoutMs(3_000);
@@ -233,6 +234,7 @@ final class M1IntegrationTest {
             client.send(M1TestClient.buildClientLogin("Dan"));
             var loginResponse = client.readPacket();
             assertInstanceOf(LoginPacket.class, loginResponse);
+            client.drainM2PostLoginBurst();
 
             // Now go silent. Don't echo keep-alives.
             client.setReadTimeoutMs(6_000);

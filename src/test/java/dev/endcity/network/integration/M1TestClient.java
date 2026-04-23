@@ -5,6 +5,12 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
+import dev.endcity.network.packets.play.ChunkVisibilityPacket;
+import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
+import dev.endcity.network.packets.play.SetHealthPacket;
+import dev.endcity.network.packets.play.SetSpawnPositionPacket;
+import dev.endcity.network.packets.play.SetTimePacket;
 import dev.endcity.network.utils.PacketBuffer;
 
 import java.io.IOException;
@@ -80,6 +86,12 @@ public final class M1TestClient implements AutoCloseable {
             case 0   -> new KeepAlivePacket();
             case 1   -> new LoginPacket();
             case 2   -> new PreLoginPacket();
+            case 4   -> new SetTimePacket();
+            case 6   -> new SetSpawnPositionPacket();
+            case 8   -> new SetHealthPacket();
+            case 50  -> new ChunkVisibilityPacket();
+            case 155 -> new ChunkVisibilityAreaPacket();
+            case 202 -> new PlayerAbilitiesPacket();
             case 255 -> new DisconnectPacket();
             default  -> throw new IOException("unexpected packet id=" + id);
         };
@@ -89,6 +101,28 @@ public final class M1TestClient implements AutoCloseable {
             throw new IOException("decode(" + target.getClass().getSimpleName() + ") failed: " + e.getMessage(), e);
         }
         return target;
+    }
+
+    /**
+     * After receiving the server's LoginResponse (id=1), the server currently emits the M2.2
+     * post-Login packet burst: SetTime, SetSpawnPosition, SetHealth, PlayerAbilities,
+     * ChunkVisibilityArea (5 packets, in that order). Consumes them so the caller can continue
+     * reading KeepAlives or a DisconnectPacket without handling this burst at every call site.
+     *
+     * <p>Asserts the type of each packet as a regression guard — if the server's post-Login
+     * sequence changes, this method becomes the single place to update.
+     */
+    public void drainM2PostLoginBurst() throws IOException {
+        var a = readPacket();
+        if (!(a instanceof SetTimePacket))         throw new IOException("expected SetTime, got " + a.getClass().getSimpleName());
+        var b = readPacket();
+        if (!(b instanceof SetSpawnPositionPacket)) throw new IOException("expected SetSpawnPosition, got " + b.getClass().getSimpleName());
+        var c = readPacket();
+        if (!(c instanceof SetHealthPacket))       throw new IOException("expected SetHealth, got " + c.getClass().getSimpleName());
+        var d = readPacket();
+        if (!(d instanceof PlayerAbilitiesPacket)) throw new IOException("expected PlayerAbilities, got " + d.getClass().getSimpleName());
+        var e = readPacket();
+        if (!(e instanceof ChunkVisibilityAreaPacket)) throw new IOException("expected ChunkVisibilityArea, got " + e.getClass().getSimpleName());
     }
 
     private <T extends dev.endcity.network.packets.Packet> T decode(T target, int bodyLen) throws IOException {

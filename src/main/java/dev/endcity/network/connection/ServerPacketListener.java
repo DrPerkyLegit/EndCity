@@ -8,6 +8,11 @@ import dev.endcity.network.packets.handshake.DisconnectPacket;
 import dev.endcity.network.packets.handshake.KeepAlivePacket;
 import dev.endcity.network.packets.handshake.LoginPacket;
 import dev.endcity.network.packets.handshake.PreLoginPacket;
+import dev.endcity.network.packets.play.ChunkVisibilityAreaPacket;
+import dev.endcity.network.packets.play.PlayerAbilitiesPacket;
+import dev.endcity.network.packets.play.SetHealthPacket;
+import dev.endcity.network.packets.play.SetSpawnPositionPacket;
+import dev.endcity.network.packets.play.SetTimePacket;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -217,8 +222,32 @@ public final class ServerPacketListener implements PacketListener {
         connection.transitionTo(ConnectionState.Play);
         LOGGER.log(Level.INFO, "{0} handshake complete, entered Play (userName={1}, entityId={2})",
                 new Object[] { connection.logTag(), response.userName, response.clientVersion });
-        // World data (M2) would be sent next: SetTime, SetSpawnPosition, SetHealth,
-        // PlayerAbilities, ChunkVisibilityArea, ChunkVisibility, ChunkTilesUpdate, AddPlayer.
+
+        // ---------------------------------------------------------- M2.2 post-Login world setup
+        // First smoke-test of the play-phase packets against a real client. Order mirrors the
+        // reference server (.MinecraftLegacyEdition/server/src/core/Connection.cpp post-login):
+        // SetTime, SetSpawnPosition, SetHealth, PlayerAbilities, ChunkVisibilityArea.
+        //
+        // Chunk data (BlockRegionUpdate id=51) is M2.3 — without it the client has no terrain to
+        // render, so the expected outcome here is STILL a black screen. What this exercises is
+        // whether any of these six packets is malformed: if one is, the client disconnects (or
+        // silently closes) and we learn something. If all six pass the client's decoder the
+        // client continues waiting for chunks, the handshake byte-log trace is no longer the
+        // thing detecting problems, and we're ready to write the chunk-data layer.
+        //
+        // Values: midday, spawn at (0,64,0), full health/food, survival abilities, 3x3 chunk
+        // visibility window (minimal — we don't promise chunks we can't send).
+        connection.sendPacket(new SetTimePacket(0L, 6000L));
+        connection.sendPacket(new SetSpawnPositionPacket(0, 64, 0));
+        connection.sendPacket(new SetHealthPacket(20.0f, (short) 20, 5.0f, SetHealthPacket.DAMAGE_SOURCE_UNKNOWN));
+        connection.sendPacket(new PlayerAbilitiesPacket(
+                (byte) 0,
+                PlayerAbilitiesPacket.DEFAULT_FLYING_SPEED,
+                PlayerAbilitiesPacket.DEFAULT_WALKING_SPEED));
+        connection.sendPacket(new ChunkVisibilityAreaPacket(-1, 1, -1, 1));
+        LOGGER.log(Level.INFO,
+                "{0} M2.2 post-Login packets sent (SetTime, SetSpawn, SetHealth, PlayerAbilities, ChunkVisibilityArea)",
+                new Object[] { connection.logTag() });
     }
 
     // -------------------------------------------------------------- KeepAlive
